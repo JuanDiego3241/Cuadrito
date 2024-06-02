@@ -148,7 +148,7 @@ class Board{
         return board
     }
 
-    // Computes the new board when a piece of 'color' is set at row i, column j, side s. 
+    // Computes the new board when a piece of 'color' is set at row i, column j, side s.
     // If it is an invalid movement stops the game and declares the other 'color' as winner
     move(board, i, j, s, color){
     	if(this.check(board, i, j, s)){
@@ -234,6 +234,7 @@ class RandomPlayer extends Agent{
     }
 
     compute(board, time){
+        console.log(board)
         // Always cheks the current board status since opponent move can change several squares in the board
         var moves = this.board.valid_moves(board)
         // Randomly picks one available move
@@ -241,6 +242,42 @@ class RandomPlayer extends Agent{
         for(var i=0; i<50000000; i++){} // Making it very slow to test time restriction
         for(var i=0; i<50000000; i++){} // Making it very slow to test time restriction
         return moves[index]
+    }
+}
+
+/*player code Queso con Bocadillo
+*/
+
+class cuadritoEater extends Agent {
+    constructor(){
+        super()
+        this.board = new Board()
+    }
+
+    compute(board, time){
+        // Verificar la matriz y los movimientos válidos
+        console.log(board)
+        var moves = this.board.valid_moves(board)
+        //Aquí va el algoritmo si tan solo tuviera uno
+
+        /* Lo primero que hay que verificar que no hayan movimientos gratis (que podamos aprovechar cuadros abiertos) Esto se vería reflejado en estados del cuadros
+        cuyo valor sea 7 (0111), 14(1110), (1011), (1101). si se hace esto entonces podría haber un nuevo cuadro que cumpla estos requisitos.
+        */
+        this.freemoves(board)
+        /*Vamos a verificar los estados del tablero de forma que tratamos de seguir la mejor estrategia previa. La idea es lograr un número par o impar de carriles
+        (Cuando al llenar un cuadro se pueden llenar todos los de una hilera)
+        */
+        //Voy a replicar random mientras termino freemoves
+        var index = Math.floor(moves.length * Math.random())
+        return moves[index]
+    }
+
+    freemoves(board){
+        //No he podido resolver que tipo de elemento es Board o como obtener su longitud o recorrerlo
+        this.board.forEach(element => {
+            console.log("")
+        });
+        
     }
 }
 
