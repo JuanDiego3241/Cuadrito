@@ -227,6 +227,23 @@ class Board{
  * This is an example of a rangom player agent
  *
  */
+class BotPlayer extends Agent{
+    constructor(){ 
+        super() 
+        this.board = new Board()
+    }
+
+    compute(board, time){
+        // Always cheks the current board status since opponent move can change several squares in the board
+        var moves = this.board.valid_moves(board)
+        // Randomly picks one available move
+        var index = Math.floor(moves.length * Math.random())
+        for(var i=0; i<50000000; i++){} // Making it very slow to test time restriction
+        for(var i=0; i<50000000; i++){} // Making it very slow to test time restriction
+        return moves[index]
+    }
+}
+
 class RandomPlayer extends Agent{
     constructor(){ 
         super() 
