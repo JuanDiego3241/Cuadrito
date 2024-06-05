@@ -58,10 +58,10 @@ class Board{
         board[0] = []
         board[0][0] = 9
         for(var j=1; j<m; j++){
-	    board[0][j] = 1
-	}
-	board[0][m] = 3
-	
+	        board[0][j] = 1
+	    }
+	    board[0][m] = 3
+
         for(var i=1; i<m; i++){
             board[i] = []
             board[i][0] = 8
@@ -234,7 +234,6 @@ class RandomPlayer extends Agent{
     }
 
     compute(board, time){
-        console.log(board)
         // Always cheks the current board status since opponent move can change several squares in the board
         var moves = this.board.valid_moves(board)
         // Randomly picks one available move
@@ -252,33 +251,98 @@ class cuadritoEater extends Agent {
     constructor(){
         super()
         this.board = new Board()
+        this.net = net;
+        this.trainer = trainer;
+        this.gamma = 0.99;
+        this.epsilon = 1.0;
+        this.epsilonDecay = 0.995;
+        this.minEpsilon = 0.01;
+        this.memory = [];
+        this.maxMemory = 10000;
+        this.batchSize = 32;
     }
 
     compute(board, time){
-        // Verificar la matriz y los movimientos válidos
         console.log(board)
+        // Verificar la matriz y los movimientos válidos
         var moves = this.board.valid_moves(board)
         //Aquí va el algoritmo si tan solo tuviera uno
-
-        /* Lo primero que hay que verificar que no hayan movimientos gratis (que podamos aprovechar cuadros abiertos) Esto se vería reflejado en estados del cuadros
-        cuyo valor sea 7 (0111), 14(1110), (1011), (1101). si se hace esto entonces podría haber un nuevo cuadro que cumpla estos requisitos.
-        */
-        this.freemoves(board)
-        /*Vamos a verificar los estados del tablero de forma que tratamos de seguir la mejor estrategia previa. La idea es lograr un número par o impar de carriles
-        (Cuando al llenar un cuadro se pueden llenar todos los de una hilera)
-        */
-        //Voy a replicar random mientras termino freemoves
-        var index = Math.floor(moves.length * Math.random())
-        return moves[index]
+        //Usaré ConvNetJS (no se que estoy haciendo)
+        const convnet = new convnetjs.Net([
+            { type: 'conv', nx: 3, ny: 3, fh: 5, fw: 5, output: 32 },
+            { type: 'pool', sx: 2, sy: 2 },
+            { type: 'conv', nx: 3, ny: 3, fh: 3, fw: 3, output: 64 },
+            { type: 'pool', sx: 2, sy: 2 },
+            { type: 'fc', output: 256 },
+            { type: 'fc', output: 3 * acciones.length } // Salida: valores Q para cada acción
+          ]);
+        this.codificarEstado(board)
+        var action = agent.act(state); //state es el board, que pasaría a ser vol si es en tensor
+        var nextState = applyAction(state, action);
+        var reward = getReward(state, action);
+        var done = isGameOver(state);
+        agent.remember(state, action, reward, nextState, done);
+    }
+    codificarEstado(board) {
+        // Implementar la lógica para convertir el tablero en un tensor tridimensional
+        // Cada casilla se representa como un vector de 5 elementos
+        // Se convierte la matriz bidimensional en un tensor tridimensional
+        var vol = new convnetjs.Vol(20, 20, 3);
+        for (var i = 0; i < 20; i++) {
+            for (var j = 0; j < 20; j++) {
+                vol.set(i, j, k, state[i][j]);
+            }
+        }
+        return vol;
+    }
+    remember(state, action, reward, nextState, done) {
+        this.memory.push({state, action, reward, nextState, done});
+        if (this.memory.length > this.maxMemory) {
+            this.memory.shift();
+        }
     }
 
-    freemoves(board){
-        //No he podido resolver que tipo de elemento es Board o como obtener su longitud o recorrerlo
-        this.board.forEach(element => {
-            console.log("")
+    act(state) {
+        if (Math.random() < this.epsilon) {
+            return Math.floor(Math.random() * 24); // Acción aleatoria
+        } else {
+            var input = preprocessState(state);
+            var action_values = this.net.forward(input);
+            return action_values.w.indexOf(Math.max(...action_values.w)); // Mejor acción conocida
+        }
+    }
+
+    replay() {
+        if (this.memory.length < this.batchSize) {
+            return;
+        }
+
+        var batch = [];
+        for (var i = 0; i < this.batchSize; i++) {
+            var idx = Math.floor(Math.random() * this.memory.length);
+            batch.push(this.memory[idx]);
+        }
+
+        batch.forEach(({state, action, reward, nextState, done}) => {
+            var target = reward;
+            if (!done) {
+                var next_input = preprocessState(nextState);
+                var future_reward = Math.max(...this.net.forward(next_input).w);
+                target = reward + this.gamma * future_reward;
+            }
+
+            var input = preprocessState(state);
+            var action_values = this.net.forward(input);
+            action_values.w[action] = target;
+
+            this.trainer.train(input, action_values.w);
         });
-        
+
+        if (this.epsilon > this.minEpsilon) {
+            this.epsilon *= this.epsilonDecay;
+        }
     }
+
 }
 
 /*
@@ -295,7 +359,6 @@ class Environment extends MainClient{
 	// Initializes the game 
 	init(){ 
         var white = Konekti.vc('R').value // Name of competitor with red pieces
-        console.log(white)
         var black = Konekti.vc('Y').value // Name of competitor with yellow pieces
         var time = 1000*parseInt(Konekti.vc('time').value) // Maximum playing time assigned to a competitor (milliseconds)
         var size = parseInt(Konekti.vc('size').value) // Size of the reversi board
@@ -351,6 +414,7 @@ class Environment extends MainClient{
             var b = board.clone(x.rb)
             start = Date.now()
             var action = x.players[id].compute(b, x.ptime[x.player])
+            console.log(action)
             var end = Date.now()
             var ply = (x.player=='R')?-1:-2
             var flag = board.move(x.rb, action[0], action[1], action[2], ply)
