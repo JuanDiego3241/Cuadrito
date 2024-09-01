@@ -36,7 +36,7 @@ class Agent{
     }
 
     /**
-     * Determines the next play of the agent
+     * Determines the next play of the agen}
      * @param board Current square configuration
      * @param time Remaining time the agent has for playing all the game (milliseconds)
      * @return A list with three values [row, column, side]. Parameter size can take one of the following values: 
