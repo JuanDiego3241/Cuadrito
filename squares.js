@@ -58,23 +58,23 @@ class Board{
         board[0] = []
         board[0][0] = 9
         for(var j=1; j<m; j++){
-	        board[0][j] = 1
-	    }
-	    board[0][m] = 3
-
-        for(var i=1; i<m; i++){
-            board[i] = []
-            board[i][0] = 8
-            for(var j=1; j<m; j++){
-		board[i][j] = 0
-	    }
-	    board[i][m] = 2
-        }
-        
-        board[m] = []
-        board[m][0] = 12
+	    board[0][j] = 1
+	}
+	board[0][m] = 3
+	
+    for(var i=1; i<m; i++){
+        board[i] = []
+        board[i][0] = 8
         for(var j=1; j<m; j++){
-	    board[m][j] = 4
+            board[i][j] = 0
+            }
+        board[i][m] = 2
+    }
+    
+    board[m] = []
+    board[m][0] = 12
+    for(var j=1; j<m; j++){
+        board[m][j] = 4
 	}
 	board[m][m] = 6
 
@@ -148,7 +148,7 @@ class Board{
         return board
     }
 
-    // Computes the new board when a piece of 'color' is set at row i, column j, side s.
+    // Computes the new board when a piece of 'color' is set at row i, column j, side s. 
     // If it is an invalid movement stops the game and declares the other 'color' as winner
     move(board, i, j, s, color){
     	if(this.check(board, i, j, s)){
@@ -227,7 +227,12 @@ class Board{
  * This is an example of a rangom player agent
  *
  */
-class BotPlayer extends Agent{
+
+/**
+ * Agent using Minimax algorithm with Alpha-Beta Pruning
+ */
+
+class Random extends Agent {
     constructor(){ 
         super() 
         this.board = new Board()
@@ -244,127 +249,199 @@ class BotPlayer extends Agent{
     }
 }
 
-class RandomPlayer extends Agent{
-    constructor(){ 
-        super() 
-        this.board = new Board()
+class BotPlayer extends Agent {
+    constructor() {
+        super();
+        this.board = new Board();
     }
-
-    compute(board, time){
-        // Always cheks the current board status since opponent move can change several squares in the board
-        var moves = this.board.valid_moves(board)
-        // Randomly picks one available move
-        var index = Math.floor(moves.length * Math.random())
-        for(var i=0; i<50000000; i++){} // Making it very slow to test time restriction
-        for(var i=0; i<50000000; i++){} // Making it very slow to test time restriction
-        return moves[index]
+    init(color, board, time=20000) {
+        this.color = color;
+        this.time = time;
+        this.size = board.length;
+        this.opponentColor = (color == 'R') ? 'Y' : 'R';
     }
-}
-
-/*player code Queso con Bocadillo
-*/
-
-class cuadritoEater extends Agent {
-    constructor(){
-        super()
-        this.board = new Board()
-        this.net = net;
-        this.trainer = trainer;
-        this.gamma = 0.99;
-        this.epsilon = 1.0;
-        this.epsilonDecay = 0.995;
-        this.minEpsilon = 0.01;
-        this.memory = [];
-        this.maxMemory = 10000;
-        this.batchSize = 32;
+    compute(board, time) {
+        let bestMove = this.minimax(board, 3, -Infinity, Infinity, true);
+        return bestMove.move;
     }
-
-    compute(board, time){
-        console.log(board)
-        // Verificar la matriz y los movimientos válidos
-        var moves = this.board.valid_moves(board)
-        //Aquí va el algoritmo si tan solo tuviera uno
-        //Usaré ConvNetJS (no se que estoy haciendo)
-        const convnet = new convnetjs.Net([
-            { type: 'conv', nx: 3, ny: 3, fh: 5, fw: 5, output: 32 },
-            { type: 'pool', sx: 2, sy: 2 },
-            { type: 'conv', nx: 3, ny: 3, fh: 3, fw: 3, output: 64 },
-            { type: 'pool', sx: 2, sy: 2 },
-            { type: 'fc', output: 256 },
-            { type: 'fc', output: 3 * acciones.length } // Salida: valores Q para cada acción
-          ]);
-        this.codificarEstado(board)
-        var action = agent.act(state); //state es el board, que pasaría a ser vol si es en tensor
-        var nextState = applyAction(state, action);
-        var reward = getReward(state, action);
-        var done = isGameOver(state);
-        agent.remember(state, action, reward, nextState, done);
-    }
-    codificarEstado(board) {
-        // Implementar la lógica para convertir el tablero en un tensor tridimensional
-        // Cada casilla se representa como un vector de 5 elementos
-        // Se convierte la matriz bidimensional en un tensor tridimensional
-        var vol = new convnetjs.Vol(20, 20, 3);
-        for (var i = 0; i < 20; i++) {
-            for (var j = 0; j < 20; j++) {
-                vol.set(i, j, k, state[i][j]);
+    minimax(board, depth, alpha, beta, isMaximizingPlayer) {
+        if (depth === 0 || this.isTerminal(board)) {    
+            //Cuando se alcanza la profundidad máxima o el juego ha terminado, se evalúa el tablero
+            return { score: this.evaluateBoard(board) };
+        }
+        //Se obtienen todos los movimientos válidos 
+        //en un arreglo de la forma [fila, columna, lado]
+        let moves = this.board.valid_moves(board);
+        if (isMaximizingPlayer) {
+            //Se busca el mejor movimiento para el jugador maximizador
+            //al principio se asigna el peor puntaje posible
+            let maxEval = -Infinity;
+            let bestMove = null;
+            for (let move of moves) {//Para cada uno de los movimientos válidos
+                //Se clona el tablero y se realiza el movimiento
+                let newBoard = this.board.clone(board);
+                this.board.move(newBoard, move[0], move[1], move[2], this.color === 'R' ? -1 : -2);
+                //Se evalúa el tablero resultante
+                let evaluation = this.minimax(newBoard, depth - 1, alpha, beta, false).score;
+                //Se actualiza el mejor movimiento y el mejor puntaje
+                if (evaluation > maxEval) {
+                    maxEval = evaluation;
+                    bestMove = move;
+                }
+                //Se actualiza el valor de alpha
+                alpha = Math.max(alpha, evaluation);
+                //Si beta es menor o igual a alpha, se corta el ciclo
+                if (beta <= alpha) break; 
             }
-        }
-        return vol;
-    }
-    remember(state, action, reward, nextState, done) {
-        this.memory.push({state, action, reward, nextState, done});
-        if (this.memory.length > this.maxMemory) {
-            this.memory.shift();
-        }
-    }
-
-    act(state) {
-        if (Math.random() < this.epsilon) {
-            return Math.floor(Math.random() * 24); // Acción aleatoria
+            return { move: bestMove, score: maxEval };
         } else {
-            var input = preprocessState(state);
-            var action_values = this.net.forward(input);
-            return action_values.w.indexOf(Math.max(...action_values.w)); // Mejor acción conocida
-        }
-    }
-
-    replay() {
-        if (this.memory.length < this.batchSize) {
-            return;
-        }
-
-        var batch = [];
-        for (var i = 0; i < this.batchSize; i++) {
-            var idx = Math.floor(Math.random() * this.memory.length);
-            batch.push(this.memory[idx]);
-        }
-
-        batch.forEach(({state, action, reward, nextState, done}) => {
-            var target = reward;
-            if (!done) {
-                var next_input = preprocessState(nextState);
-                var future_reward = Math.max(...this.net.forward(next_input).w);
-                target = reward + this.gamma * future_reward;
+            let minEval = Infinity;
+            let bestMove = null;
+            for (let move of moves) {
+                let newBoard = this.board.clone(board);
+                this.board.move(newBoard, move[0], move[1], move[2], this.opponentColor === 'R' ? -1 : -2);
+                let evaluation = this.minimax(newBoard, depth - 1, alpha, beta, true).score;
+                if (evaluation < minEval) {
+                    minEval = evaluation;
+                    bestMove = move;
+                }
+                beta = Math.min(beta, evaluation);
+                if (beta <= alpha) break;  // Alpha cut-off
             }
-
-            var input = preprocessState(state);
-            var action_values = this.net.forward(input);
-            action_values.w[action] = target;
-
-            this.trainer.train(input, action_values.w);
-        });
-
-        if (this.epsilon > this.minEpsilon) {
-            this.epsilon *= this.epsilonDecay;
+            return { move: bestMove, score: minEval };
         }
     }
+    evaluateBoard(board) {
+        let redScore = 0;
+        let yellowScore = 0;
+        for (let row of board) {
+            for (let cell of row) {
+                if (cell === -1) redScore++;
+                if (cell === -2) yellowScore++;
+            }
+        }
+        return (this.color === 'R') ? (redScore - yellowScore) : (yellowScore - redScore);
+    }
 
+    isTerminal(board) {
+        // Verifica si el juego ha terminado
+        // el juego ha terminado si no hay casillas vacías
+        for (let row of board) {
+            for (let cell of row) {
+                if (cell >= 0 && cell < 15) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 }
-
 /*
  * Environment (Cannot be modified or any of its attributes accesed directly)
  */
+
+class BotPlayer2 extends Agent {
+    constructor() {
+        super();
+        this.board = new Board();
+        this.memo = new Map();  // Memoización
+    }
+
+    init(color, board, time=20000) {
+        this.color = color;
+        this.time = time;
+        this.size = board.length;
+        this.opponentColor = (color === 'R') ? 'Y' : 'R';
+    }
+
+    compute(board, time) {
+        let bestMove = this.minimax(board, 3, -Infinity, Infinity, true);
+        return bestMove.move;
+    }
+
+    minimax(board, depth, alpha, beta, isMaximizingPlayer) {
+        const boardKey = this.boardToString(board);
+        if (this.memo.has(boardKey)) {
+            return this.memo.get(boardKey);
+        }
+
+        if (depth === 0 || this.isTerminal(board)) {
+            const evalResult = { score: this.evaluateBoard(board) };
+            this.memo.set(boardKey, evalResult);
+            return evalResult;
+        }
+
+        let moves = this.board.valid_moves(board);
+        this.sortMoves(moves, isMaximizingPlayer);
+
+        let bestMove = null;
+        if (isMaximizingPlayer) {
+            let maxEval = -Infinity;
+            for (let move of moves) {
+                let newBoard = this.board.clone(board);
+                this.board.move(newBoard, move[0], move[1], move[2], this.color === 'R' ? -1 : -2);
+                let evaluation = this.minimax(newBoard, depth - 1, alpha, beta, false).score;
+                if (evaluation > maxEval) {
+                    maxEval = evaluation;
+                    bestMove = move;
+                }
+                alpha = Math.max(alpha, evaluation);
+                if (beta <= alpha) break;
+            }
+            const result = { move: bestMove, score: maxEval };
+            this.memo.set(boardKey, result);
+            return result;
+        } else {
+            let minEval = Infinity;
+            for (let move of moves) {
+                let newBoard = this.board.clone(board);
+                this.board.move(newBoard, move[0], move[1], move[2], this.opponentColor === 'R' ? -1 : -2);
+                let evaluation = this.minimax(newBoard, depth - 1, alpha, beta, true).score;
+                if (evaluation < minEval) {
+                    minEval = evaluation;
+                    bestMove = move;
+                }
+                beta = Math.min(beta, evaluation);
+                if (beta <= alpha) break;
+            }
+            const result = { move: bestMove, score: minEval };
+            this.memo.set(boardKey, result);
+            return result;
+        }
+    }
+
+    sortMoves(moves, isMaximizingPlayer) {
+        // Se podría implementar una lógica de priorización, como mover en el centro o cerca de piezas propias.
+    }
+
+    evaluateBoard(board) {
+        let redScore = 0;
+        let yellowScore = 0;
+        for (let row of board) {
+            for (let cell of row) {
+                if (cell === -1) redScore++;
+                if (cell === -2) yellowScore++;
+            }
+        }
+        return (this.color === 'R') ? (redScore - yellowScore) : (yellowScore - redScore);
+    }
+
+    isTerminal(board) {
+        for (let row of board) {
+            for (let cell of row) {
+                if (cell >= 0 && cell < 15) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    boardToString(board) {
+        return board.map(row => row.join('')).join('');
+    }
+}
+
 class Environment extends MainClient{
 	constructor(){ 
         super()
@@ -374,8 +451,9 @@ class Environment extends MainClient{
     setPlayers(players){ this.players = players }
 
 	// Initializes the game 
-	init(){ 
+	init(){
         var white = Konekti.vc('R').value // Name of competitor with red pieces
+        console.log(white)
         var black = Konekti.vc('Y').value // Name of competitor with yellow pieces
         var time = 1000*parseInt(Konekti.vc('time').value) // Maximum playing time assigned to a competitor (milliseconds)
         var size = parseInt(Konekti.vc('size').value) // Size of the reversi board
@@ -431,7 +509,6 @@ class Environment extends MainClient{
             var b = board.clone(x.rb)
             start = Date.now()
             var action = x.players[id].compute(b, x.ptime[x.player])
-            console.log(action)
             var end = Date.now()
             var ply = (x.player=='R')?-1:-2
             var flag = board.move(x.rb, action[0], action[1], action[2], ply)
@@ -580,4 +657,3 @@ function custom_commands(){
         }
     ] 
 }
-
