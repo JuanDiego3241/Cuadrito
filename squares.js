@@ -254,19 +254,16 @@ class BotPlayer extends Agent {
         super();
         this.board = new Board();
     }
-
     init(color, board, time=20000) {
         this.color = color;
         this.time = time;
         this.size = board.length;
         this.opponentColor = (color == 'R') ? 'Y' : 'R';
     }
-
     compute(board, time) {
         let bestMove = this.minimax(board, 3, -Infinity, Infinity, true);
         return bestMove.move;
     }
-
     minimax(board, depth, alpha, beta, isMaximizingPlayer) {
         if (depth === 0 || this.isTerminal(board)) {    
             //Cuando se alcanza la profundidad máxima o el juego ha terminado, se evalúa el tablero
@@ -314,9 +311,7 @@ class BotPlayer extends Agent {
             return { move: bestMove, score: minEval };
         }
     }
-
     evaluateBoard(board) {
-        
         let redScore = 0;
         let yellowScore = 0;
         for (let row of board) {
@@ -344,6 +339,109 @@ class BotPlayer extends Agent {
 /*
  * Environment (Cannot be modified or any of its attributes accesed directly)
  */
+
+class BotPlayer2 extends Agent {
+    constructor() {
+        super();
+        this.board = new Board();
+        this.memo = new Map();  // Memoización
+    }
+
+    init(color, board, time=20000) {
+        this.color = color;
+        this.time = time;
+        this.size = board.length;
+        this.opponentColor = (color === 'R') ? 'Y' : 'R';
+    }
+
+    compute(board, time) {
+        let bestMove = this.minimax(board, 3, -Infinity, Infinity, true);
+        return bestMove.move;
+    }
+
+    minimax(board, depth, alpha, beta, isMaximizingPlayer) {
+        const boardKey = this.boardToString(board);
+        if (this.memo.has(boardKey)) {
+            return this.memo.get(boardKey);
+        }
+
+        if (depth === 0 || this.isTerminal(board)) {
+            const evalResult = { score: this.evaluateBoard(board) };
+            this.memo.set(boardKey, evalResult);
+            return evalResult;
+        }
+
+        let moves = this.board.valid_moves(board);
+        this.sortMoves(moves, isMaximizingPlayer);
+
+        let bestMove = null;
+        if (isMaximizingPlayer) {
+            let maxEval = -Infinity;
+            for (let move of moves) {
+                let newBoard = this.board.clone(board);
+                this.board.move(newBoard, move[0], move[1], move[2], this.color === 'R' ? -1 : -2);
+                let evaluation = this.minimax(newBoard, depth - 1, alpha, beta, false).score;
+                if (evaluation > maxEval) {
+                    maxEval = evaluation;
+                    bestMove = move;
+                }
+                alpha = Math.max(alpha, evaluation);
+                if (beta <= alpha) break;
+            }
+            const result = { move: bestMove, score: maxEval };
+            this.memo.set(boardKey, result);
+            return result;
+        } else {
+            let minEval = Infinity;
+            for (let move of moves) {
+                let newBoard = this.board.clone(board);
+                this.board.move(newBoard, move[0], move[1], move[2], this.opponentColor === 'R' ? -1 : -2);
+                let evaluation = this.minimax(newBoard, depth - 1, alpha, beta, true).score;
+                if (evaluation < minEval) {
+                    minEval = evaluation;
+                    bestMove = move;
+                }
+                beta = Math.min(beta, evaluation);
+                if (beta <= alpha) break;
+            }
+            const result = { move: bestMove, score: minEval };
+            this.memo.set(boardKey, result);
+            return result;
+        }
+    }
+
+    sortMoves(moves, isMaximizingPlayer) {
+        // Se podría implementar una lógica de priorización, como mover en el centro o cerca de piezas propias.
+    }
+
+    evaluateBoard(board) {
+        let redScore = 0;
+        let yellowScore = 0;
+        for (let row of board) {
+            for (let cell of row) {
+                if (cell === -1) redScore++;
+                if (cell === -2) yellowScore++;
+            }
+        }
+        return (this.color === 'R') ? (redScore - yellowScore) : (yellowScore - redScore);
+    }
+
+    isTerminal(board) {
+        for (let row of board) {
+            for (let cell of row) {
+                if (cell >= 0 && cell < 15) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    boardToString(board) {
+        return board.map(row => row.join('')).join('');
+    }
+}
+
 class Environment extends MainClient{
 	constructor(){ 
         super()
